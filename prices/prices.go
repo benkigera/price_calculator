@@ -1,53 +1,46 @@
 package prices
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 
-	"github.com/benkigera/price_calculator/conversions"
+	"github.com/benkigera/price_calculator/filemanager"
 )
 
+type PriceResult struct {
+	Original float64
+	WithTax  float64
+}
+
 type TaxIncludedPriceJob struct {
-	TaxRate float64
-	InputPrices  []float64
-	TaxIncludedPrices map[string]float64
+	TaxRate           float64
+	InputPrices       []float64
+	TaxIncludedPrices []PriceResult
 }
 
 func (job *TaxIncludedPriceJob) ReadInputPrices() {
-	file, err := os.Open("price.txt")
+	prices, err := filemanager.ReadPricesFromFile("price.txt")
 	if err != nil {
-		fmt.Println("Error opening file:", err)
+		fmt.Println("Error reading prices:", err)
 		return
 	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-		price, err := conversions.StringToFloat(line)
-		if err != nil {
-			if line != "" {
-				fmt.Println("Error parsing price:", err)
-			}
-			continue
-		}
-		job.InputPrices = append(job.InputPrices, price)
-	}
+	job.InputPrices = prices
 }
 
 func (job *TaxIncludedPriceJob) Process() {
 	job.ReadInputPrices()
-	job.TaxIncludedPrices = make(map[string]float64)
+	job.TaxIncludedPrices = make([]PriceResult, 0, len(job.InputPrices))
 	
 	for _, price := range job.InputPrices {
 		taxIncludedPrice := price * (1 + job.TaxRate)
-		job.TaxIncludedPrices[fmt.Sprintf("%.2f", price)] = taxIncludedPrice
+		job.TaxIncludedPrices = append(job.TaxIncludedPrices, PriceResult{
+			Original: price,
+			WithTax:  taxIncludedPrice,
+		})
 	}
 
 	fmt.Println("Price Calculations:")
-	for originalPrice, taxIncludedPrice := range job.TaxIncludedPrices {
-		fmt.Printf("Original: $%s -> With Tax: $%.2f\n", originalPrice, taxIncludedPrice)
+	for _, result := range job.TaxIncludedPrices {
+		fmt.Printf("Original: $%.2f -> With Tax: $%.2f\n", result.Original, result.WithTax)
 	}
 }
 
